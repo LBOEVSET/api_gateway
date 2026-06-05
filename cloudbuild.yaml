@@ -1,0 +1,62 @@
+steps:
+
+# 1️⃣ Authenticate to GKE cluster
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'auth-cluster'
+  entrypoint: gcloud
+  args:
+    - container
+    - clusters
+    - get-credentials
+    - console-cluster
+    - --region=asia-southeast1
+    - --project=$PROJECT_ID
+
+# 2️⃣ Update/create Kubernetes secret in the console-shop namespace
+- name: 'gcr.io/cloud-builders/kubectl'
+  id: 'update-secret'
+  entrypoint: bash
+  args:
+    - -c
+    - |
+      kubectl create secret generic api-gateway-secret \
+        --namespace=console-shop \
+        --from-literal=JWT_SECRET="$_JWT_SECRET" \
+        --from-literal=JWT_REFRESH_SECRET="$_JWT_REFRESH_SECRET" \
+        --from-literal=INTERNAL_SECRET="$_INTERNAL_SECRET" \
+        --dry-run=client -o yaml | kubectl apply -f -
+  env:
+    - CLOUDSDK_COMPUTE_REGION=asia-southeast1
+    - CLOUDSDK_CONTAINER_CLUSTER=console-cluster
+
+# 3️⃣ Build Docker image
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    - build
+    - -t
+    - asia-southeast1-docker.pkg.dev/$PROJECT_ID/console-shop/api-gateway:$SHORT_SHA
+    - .
+
+# 4️⃣ Push Docker image
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    - push
+    - asia-southeast1-docker.pkg.dev/$PROJECT_ID/console-shop/api-gateway:$SHORT_SHA
+
+# 5️⃣ Deploy to GKE (console-shop namespace)
+- name: 'gcr.io/cloud-builders/kubectl'
+  args:
+    - set
+    - image
+    - deployment/api-gateway
+    - api-gateway=asia-southeast1-docker.pkg.dev/$PROJECT_ID/console-shop/api-gateway:$SHORT_SHA
+    - --namespace=console-shop
+  env:
+    - CLOUDSDK_COMPUTE_REGION=asia-southeast1
+    - CLOUDSDK_CONTAINER_CLUSTER=console-cluster
+
+images:
+  - asia-southeast1-docker.pkg.dev/$PROJECT_ID/console-shop/api-gateway:$SHORT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY
