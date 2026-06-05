@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api-gateway
+  namespace: console-shop
   labels:
     app: api-gateway
 spec:
@@ -21,15 +22,25 @@ spec:
     spec:
       containers:
         - name: api-gateway
-          image: asia-southeast1-docker.pkg.dev/console-shop-489204/console-shop/api-gateway:latest
+          image: asia-southeast1-docker.pkg.dev/agentassistant-496719/console-shop/api-gateway:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
-          env:
-            - name: GIN_MODE
-              value: "release"
           envFrom:
             - secretRef:
                 name: api-gateway-secret
+          env:
+            - name: GIN_MODE
+              value: "release"
+            - name: PORT
+              value: "8000"
+            # Route to internal ClusterIP services
+            - name: BACKEND_URL
+              value: "http://console-backend:3012"
+            - name: PAYMENT_GATEWAY_URL
+              value: "http://payment-gateway-service:8080"
+            - name: ALLOWED_ORIGINS
+              value: "https://console-shop-web.lboevset.com,https://console-shop-admin.lboevset.com"
           resources:
             requests:
               cpu: "100m"
@@ -43,9 +54,11 @@ spec:
               port: 8000
             initialDelaySeconds: 5
             periodSeconds: 10
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /health
               port: 8000
             initialDelaySeconds: 10
-            periodSeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
