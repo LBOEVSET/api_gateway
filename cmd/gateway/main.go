@@ -12,12 +12,21 @@ import (
 
 	"github.com/consoleshop/api-gateway/internal/config"
 	"github.com/consoleshop/api-gateway/internal/router"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	})))
+
+	// Switch Gin to release mode. In debug mode Gin prints every registered
+	// route and has extra overhead per request. GIN_MODE env var overrides this
+	// so local developers can set GIN_MODE=debug to get verbose output.
+	if os.Getenv("GIN_MODE") == "" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	cfg := config.Load()
 

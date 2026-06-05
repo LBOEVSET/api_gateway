@@ -29,9 +29,16 @@ func ReverseProxy(targetURL string) gin.HandlerFunc {
 			req.Header.Del("Trailers")
 		},
 		Transport: &http.Transport{
-			MaxIdleConns:        100,
-			MaxIdleConnsPerHost: 20,
+			// MaxIdleConnsPerHost controls keep-alive connection reuse per upstream.
+			// Default is 2 which causes queuing under any meaningful load.
+			// This gateway proxies to 2 upstreams so 100 per host is appropriate.
+			MaxIdleConns:        200,
+			MaxIdleConnsPerHost: 100,
 			IdleConnTimeout:     90 * time.Second,
+			// Prevent hanging indefinitely if the upstream is slow to respond.
+			ResponseHeaderTimeout: 30 * time.Second,
+			// Keep-alive is enabled by default; make it explicit.
+			DisableKeepAlives: false,
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			w.Header().Set("Content-Type", "application/json")

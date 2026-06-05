@@ -22,6 +22,9 @@ var publicRoutes = []string{
 	"/api/v1/auth/verify/otp",
 	"/api/v1/payments/webhook",
 	"/api/v1/health-check",
+	// Statistics are analytics-only — allow without auth so guest sessions
+	// can record events. Batched to minimise request count.
+	"/api/v1/statistics",
 }
 
 // readOnlyPublicPrefixes are GET-only public prefixes.
