@@ -1,0 +1,78 @@
+name: Deploy API Gateway to GKE
+
+on:
+  push:
+    branches: [dev]
+
+env:
+  REGION: asia-southeast1
+  REPO:   console-shop
+  IMAGE:  api-gateway
+  DEPLOY: api-gateway
+  NS:     console-shop
+
+jobs:
+  build-and-deploy:
+    name: Build, Push & Rollout
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout config repo
+        uses: actions/checkout@v4
+        with:
+          repository: LBOEVSET/api_gateway_config
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          path: _config
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build & push Docker image
+        run: |
+          IMAGE_PATH="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}"
+          docker build \
+            --platform linux/amd64 \
+            -t "${IMAGE_PATH}:latest" \
+            -t "${IMAGE_PATH}:${{ github.sha }}" \
+            .
+          docker push "${IMAGE_PATH}:latest"
+          docker push "${IMAGE_PATH}:${{ github.sha }}"
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ secrets.GKE_CLUSTER }}
+          location:     ${{ secrets.GKE_ZONE }}
+          project_id:   ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Update k8s secret from config repo
+        run: |
+          set -a && source _config/environments/dev.env && set +a
+          kubectl create secret generic api-gateway-secret \
+            --namespace=${{ env.NS }} \
+            --from-literal=JWT_SECRET="$JWT_SECRET" \
+            --from-literal=JWT_REFRESH_SECRET="$JWT_REFRESH_SECRET" \
+            --from-literal=INTERNAL_SECRET="$INTERNAL_SECRET" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy
+        run: |
+          kubectl set image deployment/${{ env.DEPLOY }} \
+            ${{ env.DEPLOY }}="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}" \
+            -n ${{ env.NS }}
+          kubectl rollout status deployment/${{ env.DEPLOY }} -n ${{ env.NS }} --timeout=120s
