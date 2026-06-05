@@ -8,8 +8,8 @@ steps:
     - container
     - clusters
     - get-credentials
-    - console-cluster
-    - --region=asia-southeast1
+    - console-shop-cluster
+    - --zone=asia-southeast1-c
     - --project=$PROJECT_ID
 
 # 2️⃣ Update/create Kubernetes secret in the console-shop namespace
@@ -26,8 +26,8 @@ steps:
         --from-literal=INTERNAL_SECRET="$_INTERNAL_SECRET" \
         --dry-run=client -o yaml | kubectl apply -f -
   env:
-    - CLOUDSDK_COMPUTE_REGION=asia-southeast1
-    - CLOUDSDK_CONTAINER_CLUSTER=console-cluster
+    - CLOUDSDK_COMPUTE_ZONE=asia-southeast1-c
+    - CLOUDSDK_CONTAINER_CLUSTER=console-shop-cluster
 
 # 3️⃣ Build Docker image
 - name: 'gcr.io/cloud-builders/docker'
@@ -52,8 +52,8 @@ steps:
     - api-gateway=asia-southeast1-docker.pkg.dev/$PROJECT_ID/console-shop/api-gateway:$SHORT_SHA
     - --namespace=console-shop
   env:
-    - CLOUDSDK_COMPUTE_REGION=asia-southeast1
-    - CLOUDSDK_CONTAINER_CLUSTER=console-cluster
+    - CLOUDSDK_COMPUTE_ZONE=asia-southeast1-c
+    - CLOUDSDK_CONTAINER_CLUSTER=console-shop-cluster
 
 images:
   - asia-southeast1-docker.pkg.dev/$PROJECT_ID/console-shop/api-gateway:$SHORT_SHA
