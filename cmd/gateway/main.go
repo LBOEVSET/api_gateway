@@ -52,6 +52,7 @@ func main() {
 	go func() {
 		slog.Info("API Gateway starting",
 			"port", cfg.Port,
+			"zone", cfg.Zone,
 			"backend", cfg.BackendURL,
 			"payment", cfg.PaymentGatewayURL,
 			"internalSecretLen", len(cfg.InternalSecret),

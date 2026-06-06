@@ -33,6 +33,12 @@ var readOnlyPublicPrefixes = []string{
 	"/api/v1/articles",
 	"/api/v1/events",
 	"/api/v1/merchandise",
+	// Profile images are served from GCS (public URLs) — this prefix is kept
+	// for any remaining local-dev file serving so img tags load without auth.
+	"/api/v1/profile/file",
+	// Subscription plans and tiers are public (e.g., for the pricing page)
+	"/api/v1/subscription/plans",
+	"/api/v1/subscription/tiers",
 }
 
 func isPublic(method, path string) bool {

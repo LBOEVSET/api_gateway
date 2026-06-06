@@ -9,8 +9,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// FileSizeLimit enforces maximum file size and file count for multipart uploads.
+// FileSizeLimit enforces maximum total request body size for multipart uploads.
+//
+// Important: we ONLY wrap the body with MaxBytesReader — we do NOT call
+// ParseMultipartForm, because that consumes the body stream entirely.
+// If the body were parsed here the downstream service (NestJS/multer) would
+// receive an empty stream and abort. Individual file-type and per-file size
+// validation is handled by the downstream service.
 func FileSizeLimit(cfg *config.Config) gin.HandlerFunc {
+	maxBytes := cfg.MaxFileSizeBytes * int64(cfg.MaxFileCount)
 	return func(c *gin.Context) {
 		ct := c.ContentType()
 		if !strings.HasPrefix(ct, "multipart/form-data") {
@@ -18,54 +25,20 @@ func FileSizeLimit(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		// Limit total request size first
-		c.Request.Body = http.MaxBytesReader(
-			c.Writer,
-			c.Request.Body,
-			cfg.MaxFileSizeBytes*int64(cfg.MaxFileCount),
-		)
-
-		if err := c.Request.ParseMultipartForm(cfg.MaxFileSizeBytes); err != nil {
+		// Reject via Content-Length header before reading anything
+		if c.Request.ContentLength > maxBytes {
 			c.AbortWithStatusJSON(http.StatusRequestEntityTooLarge, gin.H{
 				"message": fmt.Sprintf(
-					"Request body too large. Maximum total size is %d MB.",
-					(cfg.MaxFileSizeBytes*int64(cfg.MaxFileCount))/(1024*1024),
+					"Request too large. Maximum total size is %d MB.",
+					maxBytes/(1024*1024),
 				),
 				"statusCode": 413,
 			})
 			return
 		}
 
-		if c.Request.MultipartForm == nil {
-			c.Next()
-			return
-		}
-
-		// Count and size-check individual files
-		totalFiles := 0
-		for _, files := range c.Request.MultipartForm.File {
-			totalFiles += len(files)
-			if totalFiles > cfg.MaxFileCount {
-				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-					"message":    fmt.Sprintf("Too many files. Maximum is %d.", cfg.MaxFileCount),
-					"statusCode": 400,
-				})
-				return
-			}
-			for _, fh := range files {
-				if fh.Size > cfg.MaxFileSizeBytes {
-					c.AbortWithStatusJSON(http.StatusRequestEntityTooLarge, gin.H{
-						"message": fmt.Sprintf(
-							"File '%s' exceeds the %d MB limit.",
-							fh.Filename,
-							cfg.MaxFileSizeBytes/(1024*1024),
-						),
-						"statusCode": 413,
-					})
-					return
-				}
-			}
-		}
+		// Wrap body so the downstream read is capped — body stays unread here
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBytes)
 
 		c.Next()
 	}

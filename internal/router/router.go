@@ -65,6 +65,7 @@ func New(cfg *config.Config) *gin.Engine {
 		route(api, "/v1/support-tickets", backendProxy)
 		route(api, "/v1/chat", backendProxy)
 		route(api, "/v1/health-check", backendProxy)
+		route(api, "/v1/subscription", backendProxy)
 
 		// ── Payments → Payment Gateway ──────────────────────────────────────
 		route(api, "/v1/payments", paymentProxy)

@@ -34,6 +34,9 @@ type Config struct {
 
 	// Trusted internal network (for internal service calls)
 	InternalSecret string
+
+	// Deployment zone — local | dev | prod
+	Zone string
 }
 
 // Load reads configuration from environment / .env file.
@@ -54,6 +57,7 @@ func Load() *Config {
 	viper.SetDefault("MAX_FILE_COUNT", 5)
 	viper.SetDefault("ALLOWED_ORIGINS", "http://localhost:3022,http://localhost:3030")
 	viper.SetDefault("INTERNAL_SECRET", "internal-secret-change-me")
+	viper.SetDefault("ZONE", "local")
 
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("[config] no .env file found, using environment variables only")
@@ -80,5 +84,6 @@ func Load() *Config {
 		MaxFileCount:      viper.GetInt("MAX_FILE_COUNT"),
 		AllowedOrigins:    origins,
 		InternalSecret:    viper.GetString("INTERNAL_SECRET"),
+		Zone:              viper.GetString("ZONE"),
 	}
 }

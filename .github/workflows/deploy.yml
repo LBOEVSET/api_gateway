@@ -68,6 +68,7 @@ jobs:
             --from-literal=JWT_SECRET="$JWT_SECRET" \
             --from-literal=JWT_REFRESH_SECRET="$JWT_REFRESH_SECRET" \
             --from-literal=INTERNAL_SECRET="$INTERNAL_SECRET" \
+            --from-literal=ZONE="$ZONE" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy
@@ -75,4 +76,4 @@ jobs:
           kubectl set image deployment/${{ env.DEPLOY }} \
             ${{ env.DEPLOY }}="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}" \
             -n ${{ env.NS }}
-          kubectl rollout status deployment/${{ env.DEPLOY }} -n ${{ env.NS }} --timeout=120s
+          kubectl rollout status deployment/${{ env.DEPLOY }} -n ${{ env.NS }} --timeout=300s
