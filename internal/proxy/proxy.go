@@ -5,14 +5,21 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 // ReverseProxy creates a Gin handler that proxies requests to the given target URL.
-// The stripPrefix is removed from the request path before forwarding (empty = no strip).
 func ReverseProxy(targetURL string) gin.HandlerFunc {
+	return ReverseProxyWithStripPrefix(targetURL, "")
+}
+
+// ReverseProxyWithStripPrefix creates a Gin handler that proxies requests to the given target URL,
+// stripping the specified prefix from the request path before forwarding.
+// e.g. strip "/api/hospital/v1" so "/api/hospital/v1/auth/login" → "/auth/login" on the upstream.
+func ReverseProxyWithStripPrefix(targetURL, stripPrefix string) gin.HandlerFunc {
 	target, err := url.Parse(targetURL)
 	if err != nil {
 		panic(fmt.Sprintf("invalid proxy target URL %q: %v", targetURL, err))
@@ -23,6 +30,17 @@ func ReverseProxy(targetURL string) gin.HandlerFunc {
 			req.URL.Scheme = target.Scheme
 			req.URL.Host = target.Host
 			req.Host = target.Host
+
+			// Strip gateway prefix so the upstream sees only its own path segment.
+			if stripPrefix != "" && strings.HasPrefix(req.URL.Path, stripPrefix) {
+				req.URL.Path = req.URL.Path[len(stripPrefix):]
+				if req.URL.Path == "" {
+					req.URL.Path = "/"
+				}
+				if req.URL.RawPath != "" {
+					req.URL.RawPath = req.URL.RawPath[len(stripPrefix):]
+				}
+			}
 
 			// Remove hop-by-hop headers that should not be forwarded
 			req.Header.Del("Te")

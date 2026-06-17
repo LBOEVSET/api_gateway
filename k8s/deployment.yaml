@@ -40,7 +40,9 @@ spec:
             - name: PAYMENT_GATEWAY_URL
               value: "http://payment-gateway-service:8080"
             - name: ALLOWED_ORIGINS
-              value: "https://console-shop-web.lboevset.com,https://console-shop-admin.lboevset.com"
+              value: "https://console-shop-web.lboevset.com,https://console-shop-admin.lboevset.com,https://hospital-web.lboevset.com,https://hospital-admin.lboevset.com"
+            - name: HOSPITAL_BACKEND_URL
+              value: "http://hospital-backend.bangkok-hospital.svc.cluster.local:3000"
           resources:
             requests:
               cpu: "100m"

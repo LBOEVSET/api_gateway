@@ -49,6 +49,8 @@ func New(cfg *config.Config) *gin.Engine {
 	// ─── Proxied routes ───────────────────────────────────────────────────────
 	backendProxy := proxy.ReverseProxy(cfg.BackendURL)
 	paymentProxy := proxy.ReverseProxy(cfg.PaymentGatewayURL)
+	// Strip "/api/hospital/v1" so NestJS sees "/auth", "/bookings", etc.
+	hospitalProxy := proxy.ReverseProxyWithStripPrefix(cfg.HospitalBackendURL, "/api/hospital/v1")
 
 	api := r.Group("/api")
 	{
@@ -66,9 +68,31 @@ func New(cfg *config.Config) *gin.Engine {
 		route(api, "/v1/chat", backendProxy)
 		route(api, "/v1/health-check", backendProxy)
 		route(api, "/v1/subscription", backendProxy)
+		route(api, "/v1/concerts", backendProxy)
+		route(api, "/v1/venues", backendProxy)
 
 		// ── Payments → Payment Gateway ──────────────────────────────────────
 		route(api, "/v1/payments", paymentProxy)
+
+		// ── Hospital routes → Hospital Backend ─────────────────────────────
+		// All /api/hospital/v1/* paths are forwarded to the hospital-backend service.
+		// The /hospital prefix is stripped by the reverse proxy so the backend
+		// receives the request at its own /auth, /bookings, /doctors, etc. paths.
+		route(api, "/hospital/v1/auth", hospitalProxy)
+		route(api, "/hospital/v1/profile", hospitalProxy)
+		route(api, "/hospital/v1/bookings", hospitalProxy)
+		route(api, "/hospital/v1/packages", hospitalProxy)
+		route(api, "/hospital/v1/doctor", hospitalProxy)  // singular — doctor self-service (/doctor/me, /doctor/me/schedule)
+		route(api, "/hospital/v1/doctors", hospitalProxy)
+		route(api, "/hospital/v1/services", hospitalProxy)
+		route(api, "/hospital/v1/articles", hospitalProxy)
+		route(api, "/hospital/v1/awards", hospitalProxy)
+		route(api, "/hospital/v1/hospital-info", hospitalProxy)
+		route(api, "/hospital/v1/campaigns", hospitalProxy)
+		route(api, "/hospital/v1/rewards", hospitalProxy)
+		route(api, "/hospital/v1/doctor-schedule", hospitalProxy)
+		route(api, "/hospital/v1/admin", hospitalProxy)
+		route(api, "/hospital/v1/health", hospitalProxy)
 	}
 
 	return r

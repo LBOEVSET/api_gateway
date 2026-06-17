@@ -25,6 +25,10 @@ var publicRoutes = []string{
 	// Statistics are analytics-only — allow without auth so guest sessions
 	// can record events. Batched to minimise request count.
 	"/api/v1/statistics",
+	// Hospital routes use their own JWT secret (bkk_hospital_*) and their own
+	// NestJS JWT guards. The gateway must NOT validate or reject hospital tokens —
+	// pass all /api/hospital/v1/* through transparently; the backend handles auth.
+	"/api/hospital/v1",
 }
 
 // readOnlyPublicPrefixes are GET-only public prefixes.
