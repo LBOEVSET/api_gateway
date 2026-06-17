@@ -16,6 +16,22 @@ func ReverseProxy(targetURL string) gin.HandlerFunc {
 	return ReverseProxyWithStripPrefix(targetURL, "")
 }
 
+// proxyWriter wraps gin.ResponseWriter to provide a safe CloseNotify implementation.
+//
+// Gin's responseWriter.CloseNotify() does an unchecked type assertion on the underlying
+// http.ResponseWriter (response_writer.go:117). In unit tests the underlying writer is
+// httptest.ResponseRecorder, which does not implement http.CloseNotifier, so the assertion
+// panics. Wrapping with proxyWriter overrides CloseNotify() with a safe version that
+// returns a channel that never fires (acceptable: http.CloseNotifier is deprecated since
+// Go 1.11 and real cancellation now flows through request.Context).
+type proxyWriter struct {
+	gin.ResponseWriter
+}
+
+func (w *proxyWriter) CloseNotify() <-chan bool {
+	return make(chan bool, 1)
+}
+
 // ReverseProxyWithStripPrefix creates a Gin handler that proxies requests to the given target URL,
 // stripping the specified prefix from the request path before forwarding.
 // e.g. strip "/api/hospital/v1" so "/api/hospital/v1/auth/login" → "/auth/login" on the upstream.
@@ -73,6 +89,6 @@ func ReverseProxyWithStripPrefix(targetURL, stripPrefix string) gin.HandlerFunc 
 	}
 
 	return func(c *gin.Context) {
-		proxy.ServeHTTP(c.Writer, c.Request)
+		proxy.ServeHTTP(&proxyWriter{c.Writer}, c.Request)
 	}
 }
