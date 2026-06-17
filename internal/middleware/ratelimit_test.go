@@ -92,7 +92,10 @@ func TestRateLimiterStore_GetCreatesNewLimiter(t *testing.T) {
 	l2 := store.get("192.168.1.2")
 	assert.NotNil(t, l1)
 	assert.NotNil(t, l2)
-	assert.NotEqual(t, l1, l2)
+	// Different IPs must get different limiter instances (pointer identity, not value equality).
+	// assert.NotEqual would do a deep value comparison — both limiters have the same initial
+	// state (same limit/burst, zero tokens), so it would incorrectly report them as equal.
+	assert.NotSame(t, l1, l2)
 }
 
 func TestRateLimiterStore_GetReturnsSameLimiter(t *testing.T) {
